@@ -1,0 +1,53 @@
+web:
+  restart: always
+  build: ./web/
+  expose:
+  - "8000"
+  links:
+  - postgres:postgres
+  - redis:redis
+  volumes:
+  - ./web:/data/web
+  env_file: .env
+  working_dir: /data/web/mydjango
+  command: sh -c "sh preparation.sh && /usr/bin/gunicorn mydjango.wsgi:application -w 2 -b :8000"
+
+nginx:
+  restart: always
+  build: ./nginx/
+  ports:
+  - "80:80"
+  - "443:443"
+  volumes:
+  - /home/ubuntu/FRONTEND:/frontend
+  volumes_from:
+  - web
+  links:
+  - web:web
+
+postgres:
+  restart: always
+  image: postgres:latest
+  volumes_from:
+  - data
+  volumes:
+  - ./postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+  - ./backups/postgresql:/backup
+  environment:
+    POSTGRES_USER: "${DB_USER}"
+    POSTGRES_PASSWORD: "${DB_PASS}"
+  ports:
+  - "5432:5432"
+
+redis:
+  restart: always
+  image: redis:latest
+  expose:
+  - "6379"
+
+data:
+  restart: always
+  image: alpine
+  volumes:
+  - /var/lib/postgresql
+  command: "true"
